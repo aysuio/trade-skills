@@ -45,3 +45,4 @@ Active US-equity options trader. Responds to trade analysis requests with concre
 @pitfalls.md — 8 analytical biases to avoid, with the reasoning behind each
 @strategies.md — structure-to-regime matching, setup checklist, position management
 @intc.md — INTC Apr 2026 earnings trade arc (bear → diagonal → bull put flip, +$3.78 swing from flip)
+@mag7_q1_2026.md — Mag-7 Q1 2026 cluster framework notes. Three different IV/duration regimes matched to three structures. Lessons: T+1 reverse drift, LEAPS vega tax, buy-side report → market bar inflation, sector mood vs individual merits.

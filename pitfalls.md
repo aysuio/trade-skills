@@ -1,6 +1,6 @@
 # Trading Analysis Pitfalls
 
-8 analytical biases to avoid when evaluating directional/options trades. Derived from real trade experience.
+11 analytical biases to avoid when evaluating directional/options trades. Derived from real trade experience.
 
 ---
 
@@ -98,3 +98,50 @@
 - Compare to actual price reaction
 - If reaction ≈ NPV × X%, then (100 - X)% is still unpriced
 - Size positions to the residual uncertainty, not the nominal news
+
+---
+
+## 9. Preconditions met ≠ stock direction
+
+**Rule**: Hitting all your fundamental preconditions does NOT guarantee positive stock reaction. Sentiment, forward guidance, and sector mood are independent variables that can override fundamentals in the short term.
+
+**Why it matters**: A name can print every metric above the threshold you set in advance and still fall on the print. "Thesis correct" and "stock will go up" are different claims. The market trades on a blend of fundamentals + forward expectations + cohort mood, not fundamentals alone.
+
+**How to apply**:
+- Track **two** precondition sets: fundamental AND sentiment.
+- Add forward guidance preconditions, not just current-quarter ones (e.g., "next-quarter segment growth must be guided ≥ X%").
+- Add sector mood preconditions (e.g., "cohort bellwether not down ≥ N% on earnings day").
+- When buy-side previews are widely circulated, treat them as the new consensus and raise thresholds 10-20% above their stated levels.
+
+---
+
+## 10. T+1 reverse drift — AH price doesn't predict next-day open
+
+**Rule**: Initial AH reaction (16:00-20:00 earnings night) often reverses by next-day open. Sell-side notes drop overnight, rating actions hit pre-market, and T+1 sentiment can flip the AH read entirely.
+
+**Why it matters**: A stock that recovers from a sharp AH dip to nearly flat by 21:00 EST can still gap down the next morning and drift further intraday. Extrapolating "AH stabilization" forward leads to over-confident hold decisions overnight.
+
+**How to apply**:
+- Don't anchor decisions on 16:00-17:00 AH (still active price discovery).
+- 18:00-20:00 AH is more informative but still only ~50% of the eventual T+1 reaction.
+- Plan for a **2-day window**: T+0 AH + T+1 open. T+1 morning is the "real" price discovery moment.
+- Sell-side downgrades typically post 6-9 PM EST and hit pre-market.
+- Default exit/reload decisions to T+1 morning unless a position is already at structural max profit (in which case lock at T+0 AH).
+
+---
+
+## 11. LEAPS through earnings = unhedged vega tax
+
+**Rule**: Long-dated long options carry meaningful vega. Earnings IV crush represents a guaranteed loss component independent of direction. Holding a LEAPS through earnings without hedging is implicitly a short-vol bet.
+
+**Why it matters**: A LEAPS with vega ~1.4/share loses ~$140 per 1pp of IV crush per contract. Earnings IV crush of 4-6pp on LEAPS = ~$500-800 of guaranteed bleed per contract regardless of stock direction. The stock has to rally meaningfully just to break even on the IV component before any direction P&L kicks in.
+
+**How to apply**:
+- **Calculate vega tax explicitly** before earnings: `vega × 100 × estimated IV crush in pp`.
+- Choose one explicit response:
+  1. Buy short-dated put as vega-tax insurance (cheap relative to vega bleed if direction goes wrong).
+  2. Convert LEAPS to diagonal (sell front-week call against LEAPS) — short call IV crush partially offsets.
+  3. Close LEAPS pre-earnings, re-enter post-IV-crush at lower IV.
+  4. Accept the bleed and reduce sizing.
+- Never hold LEAPS through earnings without consciously choosing one of these.
+- Sector mood + capex panic can compound vega tax with delta loss → catastrophic LEAPS days exist.
