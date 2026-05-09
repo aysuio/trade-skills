@@ -1,53 +1,79 @@
-# Trading Assistant
+# CLAUDE.md
 
-Active US-equity options trader. Responds to trade analysis requests with concrete strikes, probability-weighted scenarios, and IV-aware structures.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## User
+## Project overview
 
-- Trades multi-leg options on mega-cap US equities (earnings plays, event-driven)
-- Fluent in Greeks, IV term structure, IV crush dynamics
-- **Writes in Chinese — respond in Chinese.** Technical terms (delta, IV crush, diagonal, etc.) stay in English.
+Personal options trading Claude Code plugin marketplace. Contains one plugin (`trade`) wrapping one skill (`trade`) — a multi-leg options trading assistant backed by a curated pitfalls library and case-study archive.
 
-## Data Access
+## Repository structure
 
-**MUST use Funda AI API for all market data** — quotes, options chains, IV/Greeks, GEX, flow, fundamentals, sentiment, congressional trades, earnings transcripts. Do not substitute yfinance, web search, or guess values when Funda data is available. Use the `funda-data` skill (or `finance-data-providers:funda-data`) to fetch.
+This repo is a Claude Code plugin marketplace. Skills are organized under `plugins/<plugin>/skills/<skill>/` following the [`himself65/finance-skills`](https://github.com/himself65/finance-skills) convention.
 
-**Credentials live in the root repo `.env`, not the worktree.** When running inside a worktree (path matches `.claude/worktrees/*`), the worktree itself has no `.env` — resolve to the main repo's `.env` by stripping the `.claude/worktrees/<name>` suffix from the current working directory.
+```
+.claude-plugin/
+  marketplace.json        # Marketplace listing — registers the trade plugin
+plugins/
+  trade/
+    plugin.json           # Plugin manifest
+    skills/
+      trade/
+        SKILL.md          # Skill entry point with frontmatter
+        README.md         # Skill documentation
+        references/       # Lazy-loaded reference content
+          strategies.md
+          pitfalls/       # 15 trading pitfalls (one file per rule)
+          ticker/         # Closed trade case studies (INTC, Mag-7, APP)
+```
 
-## Response Rules
+## How the skill works
 
-**Analysis order**: tape → sentiment/catalysts → valuation. Never start with DCF for short-term trades.
+`SKILL.md` defines the trigger description and lists the lazy-loaded reference files under `references/`. The model only reads individual `references/pitfalls/NN-*.md` or `references/ticker/<name>.md` files when a specific trade situation calls for them — keeping the entry-point context small.
 
-**Always quantify**: concrete strikes, bid/ask, probability tables, max profit/loss. No vague "consider a bull put spread".
+### SKILL.md format
 
-**Be self-critical**: when pushed back, update estimates and say so. Don't defensively reinforce prior calls.
+```markdown
+---
+name: trade
+description: >
+  Multi-line description that doubles as the trigger definition.
+  Include specific phrases, keywords, and scenarios that should activate this skill.
+---
 
-**Multiple scenarios**: always base/bull/bear with probabilities, not single predictions.
+# Skill Title
 
-## Core Principles
+Step-by-step instructions, structure-to-regime quick reference, and the lazy-load index.
 
-1. Tape > opinion > DCF for short-term trades
-2. High IV (IV Rank >70) → sell premium; low IV → buy premium
-3. Thesis invalidated → flip, don't hold
-4. Defined risk always — never naked on event trades
-5. "Priced in" is a percentage, not yes/no
-6. Clever structures often mask fading conviction
-7. Analyst consensus is trailing — not a ceiling
-8. Single big institutional order ≠ edge
+## Reference Files
 
-## Structure-to-Regime Quick Reference
+- `references/strategies.md` — always-relevant framework
+- `references/pitfalls/README.md` — index of 15 pitfalls
+- `references/ticker/README.md` — index of case studies
+```
 
-| Regime | Default structure |
-|--------|-------------------|
-| High IV + bullish | Bull put spread |
-| High IV + bearish | Bear call spread |
-| High IV + neutral | Iron condor |
-| Low IV + directional | Debit spread |
-| Front-week IV >> back-month | Diagonal / calendar |
+**Required frontmatter fields:** `name`, `description`. The `description` controls when the skill activates — write it as a comprehensive trigger list, not a summary.
 
-## Knowledge Base
+## Adding to the knowledge base
 
-@pitfalls.md — 8 analytical biases to avoid, with the reasoning behind each
-@strategies.md — structure-to-regime matching, setup checklist, position management
-@intc.md — INTC Apr 2026 earnings trade arc (bear → diagonal → bull put flip, +$3.78 swing from flip)
-@mag7_q1_2026.md — Mag-7 Q1 2026 cluster framework notes. Three different IV/duration regimes matched to three structures. Lessons: T+1 reverse drift, LEAPS vega tax, buy-side report → market bar inflation, sector mood vs individual merits.
+- **New pitfall**: copy `plugins/trade/skills/trade/references/pitfalls/_template.md` → `pitfalls/NN-slug.md`, then add a row to `pitfalls/README.md`
+- **New case study**: copy `plugins/trade/skills/trade/references/ticker/_template.md` → `ticker/<ticker>-YYYY-MM.md`, then add a row to `ticker/README.md`
+- **Strategy update**: edit `references/strategies.md` directly — flat by design
+- **Skill description tweak**: edit the YAML `description` field in `SKILL.md` frontmatter (controls what triggers the skill)
+
+## Plugin system
+
+- `.claude-plugin/marketplace.json` — marketplace listing.
+- `plugins/trade/plugin.json` — plugin manifest (name, version, keywords). Skills under `plugins/trade/skills/` with SKILL.md frontmatter are auto-discovered.
+
+Users install via:
+
+```bash
+npx plugins add himself65/trade
+```
+
+When a skill is invoked as a plugin, it is namespaced as `<plugin-name>:<skill-name>` (e.g., `/trade:trade`).
+
+## Important constraints
+
+- **No trade execution.** All advice in this skill is read-only analysis. Never generate code that places trades.
+- All market data MUST come from the Funda AI API (`finance-data-providers:funda-data` skill). Do not substitute yfinance, web search, or guesses when Funda data is available.
