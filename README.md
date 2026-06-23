@@ -10,13 +10,13 @@ A personal Claude Code plugin marketplace housing one options-trading skill — 
 ### Claude Code — Install the plugin
 
 ```bash
-npx plugins add himself65/trade-skills
+npx plugins add aysuio/trade-skills
 ```
 
 ### Claude Code — Install just the skill
 
 ```bash
-npx skills add himself65/trade-skills
+npx skills add aysuio/trade-skills
 ```
 
 ### Other agents
