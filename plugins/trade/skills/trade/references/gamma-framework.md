@@ -118,6 +118,8 @@ Position structure:
 
 ## Public GEX Data Caveats
 
+> **Data source (2026-06 migration):** Funda's `greek-exposure` feed is retired. Native GEX from Alpaca (Σ gamma×OI from `get_option_snapshot`) is **deferred** — the **dealer-sign convention** (dealers long calls / short puts, or the inverse; this sets the zero-gamma flip level) must be **defined here** before computing it. See [`commands/report.md`](commands/report.md) → Deferred. Until then, GEX relies on the public estimates below.
+
 Public dealer gamma estimates (SpotGamma, Tier1Alpha, etc.) carry meaningful model error:
 
 - Don't know **which dealers** hold positions (different risk appetites)

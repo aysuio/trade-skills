@@ -5,17 +5,17 @@ description: >
   `/trade setup` scaffolds a knowledge directory (substack, X,
   writedowns); `/trade import [file]` parses one raw file (PDF,
   screenshot, text) into structured YAML; `/trade report [tickers]`
-  reads today's capital flow / 资金流向 (retail / 大单 / institutional
-  proxy from options premium-flow); `/trade analysis` (or any
+  reads today's capital-flow / 资金流向 (price + options-flow read;
+  散户/大单/机构 split rebuilding on Alpaca); `/trade analysis` (or any
   unrecognized first word) runs the default analysis flow, auto-loading
   the knowledge directory. Use for trade analysis, earnings plays,
   money-flow / 流入流出 checks, or ticker mentions (e.g., "analyze APP").
   Triggers on multi-leg options (Jade Lizard, bull put spread, iron
   condor, diagonal, calendar), IV / IV crush, LEAPS / stock
-  replacement, dealer GEX / gamma / options flow, or VIX / vol hedging. 27 pitfalls, a gamma framework, case studies. TradingView
-  + Funda for data; replies in Chinese. Check 3 axes: vega vs IVR (p19),
-  delta vs thesis, asymmetry; bull-conviction >= 4 forbids Jade Lizard /
-  IC / Calendar (p24).
+  replacement, dealer GEX / gamma / options flow, or VIX / vol hedging.
+  27 pitfalls, a gamma framework, case studies. Alpaca + FMP for data;
+  replies in Chinese. Check 3 axes: vega vs IVR (p19), delta vs thesis,
+  asymmetry; bull-conviction >= 4 forbids Jade Lizard / IC / Calendar (p24).
 metadata:
   okf_version: "0.1"
   okf_conformance: references/OKF.md
@@ -27,7 +27,7 @@ Active US-equity options trader's personal knowledge base. Concrete strikes, pro
 
 ## Hard Rules (read before any prediction or structure recommendation)
 
-1. **Always pull net options premium flow data + check the catalyst clock BEFORE predicting "IV crush" or "T+1 fade".** Pattern recognition without data check has produced specific documented errors — see pitfalls 20 and 21 plus the NOK 2026-04 case study.
+1. **Always check the catalyst clock + read available options flow BEFORE predicting "IV crush" or "T+1 fade".** Pattern recognition without a data check has produced specific documented errors — see pitfalls 20 and 21 plus the NOK 2026-04 case study. *(Aggregated net-premium flow is currently deferred — Alpaca rebuild pending, see [`references/commands/report.md`](references/commands/report.md); until then use the Alpaca options chain / `get_option_trades` qualitatively and state the limitation.)*
 
 2. **Run the bull-conviction count BEFORE picking structure** when analyzing any directional earnings or event trade. If count ≥ 4 (see `references/strategies.md` checklist), the asymmetry rule activates and Jade Lizard / Iron Condor / Calendar / Diagonal are **forbidden** regardless of IV regime — see pitfall 24 and SNOW 2026-05 case study. "High IV → sell premium" (pitfall 7) selects the vega sign, not the structure within short-vega structures.
 
@@ -41,9 +41,17 @@ Active US-equity options trader's personal knowledge base. Concrete strikes, pro
 
 ## Data Access
 
-**Use TradingView desktop reader (`finance-data-providers:tradingview-reader`) FIRST** for quotes, options chains, IV, screener, watchlists, gainers / losers. Fall back to **Funda AI API (`finance-data-providers:funda-data`)** for anything TradingView can't provide: fundamentals, filings, transcripts, analyst estimates, options flow / GEX, supply chain, sentiment, Polymarket, congressional trades, economics. Do not substitute yfinance, web search, or guesses.
+**Primary: Alpaca MCP server (read-only).** Quotes/bars/snapshots (`get_stock_snapshot`, `get_stock_latest_quote`), option chains + **Greeks + IV + OI** (`get_option_chain`, `get_option_snapshot`), single-contract quotes/trades (`get_option_latest_quote`, `get_option_trades`), news (`get_news`), corporate actions / earnings dates (`get_corporate_actions`). **Indexes/VIX:** `get_index_latest_values` only if your Alpaca plan includes the index-data product (else 403) — otherwise pull VIX/SPX from **FMP** `indexes`.
 
-**Credentials live in the root repo `.env`, not the worktree.** When running inside a worktree (path matches `.claude/worktrees/*`), the worktree itself has no `.env` — resolve to the main repo's `.env` by stripping the `.claude/worktrees/<name>` suffix from the current working directory.
+**Fundamentals fallback: the connected FMP (Financial Modeling Prep) MCP** for what Alpaca lacks — fundamentals/statements, earnings transcripts, analyst estimates. Refer to FMP by name; the MCP tool prefix is install-specific, so **do not hardcode a per-environment hash** here.
+
+**Do not substitute yfinance, web search, or guesses.**
+
+**Deferred:** the `report` 散户/大单/机构 premium-flow split and dealer GEX are being rebuilt from Alpaca raw options trades — see [`references/commands/report.md`](references/commands/report.md) (Deferred) and [`references/gamma-framework.md`](references/gamma-framework.md).
+
+### Safety — Alpaca is wired read-only (two independent controls)
+
+The Alpaca MCP can place real trades and **fails open** (unset/empty/misspelled `ALPACA_TOOLSETS` ⇒ all tools enabled). This skill is analysis-only and **never places or modifies trades**. Read-only rests on **both**: (A) an `ALPACA_TOOLSETS` allow-list that omits `trading` / `account` / `watchlists`; (B) a harness `permissions.deny` on every mutating tool. `ALPACA_PAPER_TRADE` is **not** a safety control — never set it `false`, never flip it to debug data. Keys are user-supplied in the MCP config; never read, echo, or commit them. Setup + the mandatory read-only proof are in [`README.md`](README.md).
 
 ## Response Rules
 
@@ -86,7 +94,7 @@ Active US-equity options trader's personal knowledge base. Concrete strikes, pro
 |---|---|---|
 | `setup` | Scaffold a personal knowledge directory (`./knowledge/` by default) for substack posts, X / twitter threads, and writedowns | [references/commands/setup.md](references/commands/setup.md) |
 | `import <file_path>` | Parse one raw artifact (PDF, image, text) into structured YAML inside the knowledge directory | [references/commands/import.md](references/commands/import.md) |
-| `report [tickers | basket]` | Today's capital-flow / 资金流向 read (散户 / 大单 / 机构 proxied from Funda options premium-flow) across one or more names, as a comparison table + cross-section synthesis | [references/commands/report.md](references/commands/report.md) |
+| `report [tickers | basket]` | Today's capital-flow / 资金流向 read across one or more names. **Degraded:** the 散户 / 大单 / 机构 split + GEX are being rebuilt on Alpaca raw options flow — currently returns price/% + per-contract IV·Greeks·OI + notable large prints. See the command's Deferred section | [references/commands/report.md](references/commands/report.md) |
 | `analysis [ticker | situation]` | Default trade analysis flow — preflight (knowledge dir, vega sanity, market data), then situation-specific loads | [references/commands/analysis.md](references/commands/analysis.md) |
 
 ### Routing rules
@@ -95,7 +103,7 @@ Active US-equity options trader's personal knowledge base. Concrete strikes, pro
 2. **First word matches `setup`, `import`, `report`, or `analysis`** → load the matching reference file and follow its instructions. Everything after the command name is the argument (file path, ticker(s), basket, situation, etc.).
 3. **First word doesn't match** → default to `analysis`. Load [references/commands/analysis.md](references/commands/analysis.md) and treat the full input as the analysis target. This is the common case for natural language ("analyze NVDA", "structure for TSLA earnings", "sell put on APP", a single ticker, etc.).
 
-> **Capital-flow exception (route to `report`, not `analysis`):** if the request is for **today's money flow** — 资金流向 / 流入流出 / 净流入·净流出 / 散户·大单·机构 / capital flow / "who's buying or selling" across a name or basket — treat it as a [`report`](references/commands/report.md) request even when the first word isn't `report`. `analysis` is for structuring/deciding a trade; `report` is the standalone daily flow read.
+> **Capital-flow exception (route to `report`, not `analysis`):** if the request is for **today's money flow** — 资金流向 / 流入流出 / 净流入·净流出 / 散户·大单·机构 / capital flow / "who's buying or selling" across a name or basket — treat it as a [`report`](references/commands/report.md) request even when the first word isn't `report`. `analysis` is for structuring/deciding a trade; `report` is the standalone daily flow read. *(Currently degraded — the 散户/大单/机构 split is rebuilding on Alpaca; until then `report` returns price + options-flow context, see its Deferred section.)*
 
 > **Ingestion exception (don't mis-route to `analysis`):** if the input is an external **link / article / pasted research** the user wants you to read, study, digest, or save to the knowledge base (rather than analyze a live trade), treat it as an **ingestion** request — follow [references/commands/import.md](references/commands/import.md) and write the result to the **user's personal knowledge dir** (a writedown, or YAML for a raw artifact), **never** `references/`. See the destination rule under "Adding to the Knowledge Base."
 

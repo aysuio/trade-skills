@@ -1,7 +1,7 @@
 ---
 type: Command Reference
 title: "/trade report [tickers | basket]"
-description: Today's capital-flow / 资金流向 read for one or more names — retail / 大单 / institutional proxied from Funda options premium-flow, mapped to a comparison table + cross-section synthesis. Read-only, not investment advice.
+description: Today's capital-flow / 资金流向 read for one or more names. DEGRADED — the 散户 / 大单 / 机构 split + GEX are being rebuilt on Alpaca raw options trades; currently returns price/% + per-contract IV·Greeks·OI + notable large prints + qualitative news tone. Read-only, not investment advice.
 tags: [command, report, capital-flow, money-flow, options-flow, funds-flow]
 timestamp: 2026-06-22T20:00:00Z
 ---
@@ -12,13 +12,14 @@ A daily **capital-flow / 资金流向** read across one or more names: who is bu
 
 Runs whenever the user invokes `/trade report ...`, or asks for 资金流向 / 流入流出 / 净流入·净流出 / 散户·大单·机构 / capital flow / money flow / "who's buying" across a name or a basket.
 
-> **Read the 口径 (data-source reality) FIRST — and state it in every reply.** There is **no** stock-side "retail / large-order / institutional daily net inflow" feed available here. The moomoo / Futu three-layer stock flow needs a logged-in **FutuOpenD gateway + the `futu-api` SDK** (`get_financial_unusual`) — env-gated and usually not running. So this command builds the read from **Funda options premium-flow** as the proxy:
+> **⚠️ DEGRADED — read this 口径 (data-source reality) FIRST, and state it in every reply.** The previous 散户 / 大单 / 机构 split was built on Funda's *aggregated* options premium-flow, which is **retired**. The Alpaca rebuild (classifying raw option trades into signed net call/put premium, sweeps, GEX) is **deferred** — see [Deferred](#deferred-alpaca-rebuild). Until it lands, this command returns only what Alpaca gives cleanly:
 >
-> - **大单 / 机构 (smart money)** ← options `bullish/bearish premium`, net call/put premium, ask-vs-bid volume, and big-ticket flow alerts. Real institutional/large positioning shows up in options $ first.
-> - **散户 (retail)** ← `news/sentiment` tone (a *weak* proxy, not $ flow; coverage is thin on small / niche names).
-> - **机构 stock-side daily net flow** ← **not available** (Funda only has quarterly 13F `ownership`). Say so; don't fabricate it.
->
-> If the user wants the *true* moomoo three-layer stock flow, point them to the Futu path: `pip install futu-api` + start FutuOpenD on `127.0.0.1:11111` (you can install the SDK but cannot log in their gateway). See `futu-capital-anomaly` skill.
+> - **Price / % change** ← Alpaca `get_stock_snapshot` (vs prior close; mind market holidays).
+> - **Per-contract IV · Greeks · OI** ← `get_option_snapshot` across near-the-money strikes.
+> - **Notable large prints** ← biggest single trades from `get_option_trades` — raw and **unclassified** (not yet net bullish/bearish premium).
+> - **散户 tone** ← Alpaca `get_news` headlines — **qualitative, not a scored feed**; thin on small / niche names.
+> - **大单 / 机构 net-premium split, sweeps, GEX** ← **deferred** (see below). Say so; do not fabricate a split.
+> - **机构 stock-side daily net flow** ← **not available** here. The *true* moomoo three-layer stock flow needs a logged-in **FutuOpenD gateway + `futu-api` SDK** (`get_financial_unusual`, env-gated, usually not running): `pip install futu-api` + start FutuOpenD on `127.0.0.1:11111` (you can install the SDK but cannot log in their gateway). See `futu-capital-anomaly` skill.
 
 ## Arguments
 
@@ -29,34 +30,34 @@ Runs whenever the user invokes `/trade report ...`, or asks for 资金流向 / �
 
 ## Workflow
 
-### 1. Resolve the data path
+> **Degraded:** until the [Deferred](#deferred-alpaca-rebuild) rebuild lands, run sections 1–2 and present the limited read honestly; the section-4 classification is the **rebuild target**, not currently computable.
 
-- Resolve the Funda key per the `finance-data-providers:funda-data` skill (env `FUNDA_API_KEY`, else `.env` at the repo root; **this user's `.env` names it `FUNDA_AI_API_KEY`** — see `SKILL.md` → Data Access). When inside a worktree, the key lives in the **main repo** `.env`.
-- All calls are `GET https://api.funda.ai/v1/...` with `Authorization: Bearer $KEY`. For more than ~3 tickers, batch them in one small script (loop + aggregate) rather than dozens of separate calls.
+### 1. Pull, per ticker (Alpaca, read-only)
 
-### 2. Pull, per ticker
-
-| # | Endpoint | Gives | Use for |
+| # | Tool | Gives | Use for |
 |---|---|---|---|
-| 1 | `options/stock?ticker=<T>&type=options-volume` | today's row: `bullish_premium`/`bearish_premium`, `net_call_premium`/`net_put_premium`, `call/put_volume`, `*_volume_ask_side`/`*_bid_side`, `avg_7/30_day_*_volume`, OI | **核心** — complete daily aggregate; the 大单/机构 direction |
-| 2 | `options/flow-alerts?ticker=<T>&min_premium=50000&limit=200` | big tickets: `type` (call/put), `total_premium`, `total_ask_side_prem`, `has_sweep`, `next_earnings_date` | 大单 detail + earnings date |
-| 3 | `stock-price?ticker=<T>&limit=2` | last 2 EOD rows (param is **`ticker`**, not `symbol`) | day % change = `historical[0].close` vs `[1].close` |
-| 4 | `news/sentiment?ticker=<T>` | `ticker_sentiment` positive/negative/neutral counts + latest direction | 散户 tone proxy |
+| 1 | `get_stock_snapshot` / `get_stock_latest_quote` | latest + prior close | **涨跌%** = last vs prior close (mind market-holiday gaps — prior *trading* day, e.g. Juneteenth) |
+| 2 | `get_option_snapshot` (near-the-money strikes) | per-contract **IV, Greeks (δ/γ/θ/vega), OI** | IV / Greeks / OI context |
+| 3 | `get_option_trades` | raw trade prints (price × size) | **notable large prints only** — biggest tickets as an *activity* flag; raw, **unclassified** |
+| 4 | `get_news` | recent headlines | **散户 tone** — qualitative, not scored |
 
-**Quote-endpoint trap:** `/v1/quotes?type=` rejects `realtime-quotes` / `price-change` / `exchange-quotes` (FMP 400). Use `stock-price` for day change. Mind market-holiday gaps when computing "vs prior close" (e.g. Juneteenth → prior trading day is not yesterday).
+For more than ~3 tickers, batch the calls in one small loop rather than dozens of separate calls.
 
-**flow-alerts truncation — do not ignore:** the call caps at `limit` (200). When a name returns exactly the limit, there are *more* big tickets than you fetched, so your call/put **counts and summed premium are truncated** — use them only as an *activity* signal and take **direction from `options-volume`** (the complete aggregate). If you bound coverage this way, say so.
+### 2. Derive what's available now
 
-### 3. Derive the per-ticker metrics
+- **涨跌%** — from #1 (mind holiday gaps).
+- **IV / Greeks / OI** — from #2, near-the-money.
+- **Activity flag** — from #3: the largest prints by premium (`price × size × 100`), labelled **unclassified** (not yet net bullish/bearish — that is the deferred part).
+- **散户 tone** — from #4: qualitative direction from headlines, with the thin-coverage caveat.
+- **财报日** — from `get_corporate_actions`, where listed.
 
-- **涨跌%** — from #3.
-- **净期权流向 (牛−熊)** = `bullish_premium − bearish_premium` ($). Positive = net bullish smart-money $.
-- **净 Call 权利金 / 净 Put 权利金** = `net_call_premium` / `net_put_premium`. **Sign matters**: positive = net *bought* (ask-side); **negative call premium = calls net SOLD** (bearish/distribution).
-- **放量倍数** = `call_volume / avg_30_day_call_volume` (and puts). <1 = below average / quiet.
-- **盘口** — `call_ask_side` vs `call_bid_side` (ask>bid = aggressive call buying); same for puts (put ask>bid = put buying). Cross-check it agrees with the premium signs — that agreement IS your adversarial check.
-- **财报日** — `next_earnings_date` from #2.
+### 3. Deferred — the smart-money split is not yet computable
 
-### 4. Classify each name (聪明钱判定)
+The signed **净期权流向 (牛−熊)**, **净 Call / 净 Put 权利金** (with the "negative call premium = calls net SOLD" sign), **放量倍数**, and **盘口 ask-vs-bid** all require ask/bid-side trade classification **not yet** rebuilt from raw Alpaca trades — see [Deferred](#deferred-alpaca-rebuild). Until then, do **not** output these metrics or a 聪明钱 verdict; present sections 1–2 and say the split is rebuilding.
+
+### 4. Classify each name (聪明钱判定) — REBUILD TARGET (not yet active)
+
+> ⚠️ The table below is the **target** once the [Deferred](#deferred-alpaca-rebuild) classification lands; its triggers need signed net premium + ask/bid side, not yet available from raw Alpaca trades. Do **not** emit a 多头确认/背离 verdict until then.
 
 | Label | Trigger |
 |---|---|
@@ -67,17 +68,17 @@ Runs whenever the user invokes `/trade report ...`, or asks for 资金流向 / �
 
 Always flag **earnings proximity** (from #2): a name reporting in days explains two-sided premium; a name reporting weeks out gives a *cleaner* directional read.
 
-### 5. Output
+### 5. Output (degraded)
 
-- **One table per basket**, columns: `票 | 涨跌% | 净期权流向 (牛−熊, $M) | 净Call $M | 净Put $M | Call量/30日 | 盘口 | 聪明钱判定`. Premiums in `$M`, one decimal.
-- Then a **cross-section synthesis**: who's the clean long, who's diverging/distributing, who's price-only-unconfirmed, who's event-driven; and the **basket vs basket** comparison if more than one.
-- A **散户 (news 情绪)** line: counts + tone, with the thin-coverage caveat.
+- **One table per basket** with the columns available now: `票 | 涨跌% | ATM IV | 大单 (largest prints, unclassified) | 散户 tone`. State that 净期权流向 / 净Call·Put 权利金 / 盘口 / 聪明钱判定 are **deferred**.
+- A short **cross-section** line on price + IV + notable activity — **no** clean-long/distribution verdict until the split is rebuilt.
+- A **散户 (news tone)** line: qualitative direction, thin-coverage caveat (not a scored feed).
 - Respond in the user's language (**Chinese** by default — see User Profile).
 
 ## Constraints
 
 - **Read-only.** This is data presentation, never a trade recommendation, price target, or buy/sell call. Close with a one-line **非投资建议** note.
-- **State the 口径 every time**: options-flow proxy for 大单/机构 + news for 散户; no stock-side three-layer net flow; flow-alerts truncation; earnings-driven two-sided flow ≠ single-direction.
+- **State the 口径 every time**: the 大单/机构 net-premium split + GEX are **deferred** (Alpaca rebuild pending); currently only price/% + ATM IV·Greeks·OI + **unclassified** large prints + qualitative news tone; no stock-side three-layer net flow.
 - **A single big order ≠ smart money** — read the *aggregate* premium, not one print. See [`../pitfalls/02-single-flow-not-smart-money.md`](../pitfalls/02-single-flow-not-smart-money.md).
 - **Options flow is dealer-/positioning-driven, not "retail money"** — see [`../pitfalls/17-dealer-flow-not-retail.md`](../pitfalls/17-dealer-flow-not-retail.md).
 - **Don't fabricate** numbers or a retail/institutional split the feed doesn't provide. If an endpoint errors or a name has no listed options, say so for that name and continue.
@@ -88,5 +89,18 @@ Always flag **earnings proximity** (from #2): a name reporting in days explains 
 - [`../pitfalls/02-single-flow-not-smart-money.md`](../pitfalls/02-single-flow-not-smart-money.md) — one institutional order isn't edge.
 - [`../pitfalls/17-dealer-flow-not-retail.md`](../pitfalls/17-dealer-flow-not-retail.md) — options flow is dealer hedging, not retail direction.
 - [`../pitfalls/20-post-earnings-momentum-vs-fade.md`](../pitfalls/20-post-earnings-momentum-vs-fade.md) · [`../pitfalls/21-event-iv-vs-demand-iv.md`](../pitfalls/21-event-iv-vs-demand-iv.md) — pull flow + check the catalyst clock before any "fade / IV crush" call.
-- [`../gamma-framework.md`](../gamma-framework.md) — add GEX (`type=greek-exposure`) for dealer-positioning context when asked.
+- [`../gamma-framework.md`](../gamma-framework.md) — dealer-positioning / GEX context. **GEX recompute is deferred** (Alpaca Σ gamma×OI; dealer-sign convention to be defined) — see Deferred below.
 - [`analysis.md`](analysis.md) — when the read turns into an actual trade decision.
+
+## Deferred (Alpaca rebuild)
+
+The full 散户 / 大单 / 机构 split and dealer GEX are **not yet** rebuilt from Alpaca raw data. This is a follow-up with OPEN QUESTIONS — resolve against live tool output before implementing:
+
+1. **Side classification (Lee-Ready):** classify each `get_option_trades` print as ask-side (buy) or bid-side (sell) using the prevailing NBBO *at the trade's timestamp*. **Open:** `get_option_latest_quote` is *latest* only — confirm a historical-option-quote-at-timestamp capability exists in the enabled toolsets; if not, this needs a different method (re-design, not a fill-in).
+2. **Normative rule:** pick ONE — strict quote rule (≥ ask = buy) *or* mid-based (> mid = buy). Document the choice.
+3. **Signed premium:** subtract bid-side (sell) premium so `net_call_premium` / `net_put_premium` carry the sign section 4 needs (**negative call premium = calls net SOLD**). Unsigned sums silently break the 🔴 背离 trigger.
+4. **Sweep vs big-ticket (keep separate):** a *sweep* = same-direction prints across multiple venues; a *big ticket* = ≥ ~$50k premium. Do not merge them into one column.
+5. **放量倍数 / OI** from `get_option_snapshot` + `get_option_bars` (avg N-day volume).
+6. **GEX:** Σ over the chain of `gamma × OI × 100 × spot` from `get_option_snapshot`; **define the dealer-sign convention** in [`../gamma-framework.md`](../gamma-framework.md) first (not currently documented there — it sets the zero-gamma flip level).
+
+Until these land, `report` runs in the degraded mode described above and says so.

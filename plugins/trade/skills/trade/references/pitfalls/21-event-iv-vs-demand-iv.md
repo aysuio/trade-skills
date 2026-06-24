@@ -31,10 +31,7 @@ Concrete failure (NOK 2026-05-11): NOK at IV Rank 66, IV 74%. I recommended "rol
    - 14-45 days to earnings = mixed (event premium is building but not dominant)
    - >45 days to earnings AND IVR elevated = **demand-driven default** — investigate flow before assuming crush
 
-2. **Always pull net premium data before making a vega recommendation**:
-   ```
-   Funda API: /v1/options/stock?ticker=X&type=net-prem-ticks
-   ```
+2. **Always pull net premium data before making a vega recommendation** — *the aggregated net-premium read is currently **deferred** (Funda retired; Alpaca raw-trade rebuild pending — see [`../commands/report.md`](../commands/report.md) → Deferred). Until it lands, read flow qualitatively from the Alpaca chain / `get_option_trades` and state the limitation.*
    - Net call premium >+$5M/day on 3+ consecutive days = sustained institutional accumulation
    - Net premium turning negative or sharply bid-side = event-style top forming
    - Check for "block clusters" — a single $400K+ trade or 5+ trades in one strike inside 30 minutes = real institution at work
