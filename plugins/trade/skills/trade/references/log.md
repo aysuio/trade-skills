@@ -10,6 +10,14 @@ timestamp: 2026-06-13T00:00:00Z
 
 OKF reserved `log.md` — chronological history of this knowledge bundle, most recent first. Seeded from git history; append a dated entry whenever you add or materially revise a concept (see [`OKF.md`](OKF.md) conformance checklist).
 
+## 2026-06-23 — Data provider migration: Funda → Alpaca + FMP
+
+- Retired the Funda data API as the live data source. **Alpaca MCP** (read-only) is now primary for market/options/Greeks/IV/indexes/news; the connected **FMP** MCP covers fundamentals/transcripts/analyst estimates. Removed the Funda + TradingView-reader plumbing and its API-key/`.env` credential note.
+- Rewrote [`../SKILL.md`](../SKILL.md) Data Access (+ read-only safety), Hard Rule 1, frontmatter + Commands-table + routing; [`../README.md`](../README.md) Platform/Setup (Alpaca two-control read-only wiring + FMP); [`commands/analysis.md`](commands/analysis.md) preflight.
+- **Deferred:** the `report` 散户/大单/机构 premium-flow split and dealer GEX — Alpaca gives raw trades, not Funda's aggregates. [`commands/report.md`](commands/report.md) now runs a degraded stub with a documented `## Deferred (Alpaca rebuild)` recipe (Lee-Ready side classification, signed premium, sweep vs big-ticket, GEX Σ gamma×OI + dealer-sign convention). [`pitfalls/21-event-iv-vs-demand-iv.md`](pitfalls/21-event-iv-vs-demand-iv.md) repointed off the dead Funda endpoint.
+- **Safety:** Alpaca wired read-only via two independent controls — an `ALPACA_TOOLSETS` allow-list (no `trading`/`account`/`watchlists`) + a harness `permissions.deny` on every mutating tool. `ALPACA_PAPER_TRADE` is not a safety control. Keys user-supplied in the MCP config, never committed.
+- Fixed stale README counts (21→27 pitfalls, 6→11 case studies) and added the missing `/trade report` rows.
+
 ## 2026-06-22 — `/trade report` subcommand (daily capital-flow read)
 
 - Added [`commands/report.md`](commands/report.md) — a standalone `/trade report [tickers | basket]` flow that builds a daily **资金流向 (散户 / 大单 / 机构)** read from **Funda options premium-flow** (`options-volume` bullish/bearish premium, net call/put premium, ask-vs-bid volume, `flow-alerts`) + `news/sentiment`, because no stock-side three-layer net-flow feed is available here (the moomoo / Futu three-layer flow needs a logged-in FutuOpenD gateway + `futu-api`). Encodes the 口径 caveats, the 聪明钱 classification (🟢 confirmed long / 🔴 价涨期权背离-distribution / 🟡 price-only-unconfirmed / ⚖️ earnings two-sided), the `flow-alerts` 200-row truncation trap, and the quote-endpoint trap (use `stock-price?ticker=` for day change; `quotes?type=realtime/price-change` 400s).
